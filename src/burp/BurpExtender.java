@@ -1,6 +1,7 @@
 package burp;
 
 import com.securityriskadvisors.BigIPCookieScanner;
+import com.securityriskadvisors.NetscalerCookieScanner;
 
 import java.io.PrintWriter;
 
@@ -17,19 +18,20 @@ public class BurpExtender implements IBurpExtender
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
     private PrintWriter stdout;
-    
+
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks)
     {
         // keep a reference to our callbacks object
         this.callbacks = callbacks;
         this.stdout = new PrintWriter(callbacks.getStdout(), true);
-        
+
         // obtain an extension helpers object
         helpers = callbacks.getHelpers();
         
-        callbacks.setExtensionName("BigIP Cookie Scanner");
+        callbacks.setExtensionName("Persistence Cookie Scanner");
         callbacks.registerScannerCheck(new BigIPCookieScanner(this));
+        callbacks.registerScannerCheck(new NetscalerCookieScanner(this));
     }
     
     // helper method to search a response for occurrences of a literal match string
@@ -51,11 +53,24 @@ public class BurpExtender implements IBurpExtender
         return matches;
     }
 
+    public static String leftPad(String in, int size, char pad){
+        StringBuilder sb = new StringBuilder();
+        for (int i = size - in.length(); i>0; i--) {
+            sb.append(pad);
+        }
+        sb.append(in);
+        return sb.toString();
+    }
+
     public IBurpExtenderCallbacks getCallbacks(){
         return this.callbacks;
     }
 
     public IExtensionHelpers getHelpers(){
         return this.helpers;
+    }
+
+    public PrintWriter getStdout() {
+        return stdout;
     }
 }

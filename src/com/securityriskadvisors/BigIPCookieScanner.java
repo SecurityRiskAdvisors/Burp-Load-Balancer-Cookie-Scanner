@@ -96,7 +96,7 @@ class BigIPCookie {
         String[] splitString = this.encoded.split("\\.");
         String host = splitString[0];
         // Decode as hex and ensure result is padded to 8 characters
-        String hostAsHex = BigIPCookie.leftPad(Long.toHexString(Long.parseLong(host)), 8, '0');
+        String hostAsHex = BurpExtender.leftPad(Long.toHexString(Long.parseLong(host)), 8, '0');
         // Each two bytes is an octet in the IP address in reverse order
         String oct4 = BigIPCookie.hexStringToDecString(hostAsHex.substring(0, 2));
         String oct3 = BigIPCookie.hexStringToDecString(hostAsHex.substring(2, 4));
@@ -106,22 +106,13 @@ class BigIPCookie {
 
         String port = splitString[1];
         // Decode as hex and ensure result is padded to 4 characters
-        String portAsHex = BigIPCookie.leftPad(Long.toHexString(Long.parseLong(port)), 4, '0');
+        String portAsHex = BurpExtender.leftPad(Long.toHexString(Long.parseLong(port)), 4, '0');
         String reversedHex = portAsHex.substring(2, 4) + portAsHex.substring(0, 2);
         this.port = BigIPCookie.hexStringToDecString(reversedHex);
     }
 
     private static String hexStringToDecString(String in){
         return String.valueOf(Long.parseLong(in, 16));
-    }
-
-    private static String leftPad(String in, int size, char pad){
-        StringBuilder sb = new StringBuilder();
-        for (int i = size - in.length(); i>0; i--) {
-            sb.append(pad);
-        }
-        sb.append(in);
-        return sb.toString();
     }
 
     public String getHost(){
