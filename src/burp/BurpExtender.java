@@ -30,7 +30,7 @@ public class BurpExtender implements IBurpExtender
 
         helpers = callbacks.getHelpers();
         
-        callbacks.setExtensionName("Loadbalancer Cookie Scanner");
+        callbacks.setExtensionName("Load Balancer Cookie Scanner");
         callbacks.registerScannerCheck(new BigIPCookieScanner(this));
         callbacks.registerScannerCheck(new NetscalerCookieScanner(this));
     }
