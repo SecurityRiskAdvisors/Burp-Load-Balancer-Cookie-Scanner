@@ -10,6 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.*;
 
+/**
+ * Scanner/decoder for BigIP Cookies
+ *
+ * @author Dan Herlihy
+ */
 public class BigIPCookieScanner implements IScannerCheck{
 
     private BurpExtender extender;
@@ -21,7 +26,12 @@ public class BigIPCookieScanner implements IScannerCheck{
         this.extender = extender;
     }
 
-    // Given a list of cookies, return any BigIP cookies found
+    /**
+     * Search for BigIP cookies in a list of cookies
+     *
+     * @param cookies List of cookies from the response
+     * @return List of BigIP cookies found in the list of cookies
+     */
     private List<BigIPCookie> searchForCookies(List<ICookie> cookies){
         Matcher matcher;
         BigIPCookie bigCookie;
@@ -39,7 +49,14 @@ public class BigIPCookieScanner implements IScannerCheck{
 
         return bigCookies;
     }
-    
+
+    /**
+     * Passively scan a request/response for Netscaler cookies.
+     *
+     * @param baseRequestResponse The base HTTP request / response that should
+     * be passively scanned.
+     * @return List of issues about BigIP cookies if found or null
+     */
     @Override
     public List<IScanIssue> doPassiveScan(IHttpRequestResponse baseRequestResponse)
     {
@@ -70,6 +87,15 @@ public class BigIPCookieScanner implements IScannerCheck{
         return null;
     }
 
+    /**
+     * Determine whether two issues should be combined or not.
+     *
+     * @param existingIssue An issue that was previously reported by this
+     * Scanner check.
+     * @param newIssue An issue at the same URL path that has been newly
+     * reported by this Scanner check.
+     * @return -1 if the issues are about the same cookie, 0 if they are different
+     */
     @Override
     public int consolidateDuplicateIssues(IScanIssue existingIssue, IScanIssue newIssue)
     {
@@ -91,7 +117,9 @@ class BigIPCookie {
         this.decodeIPv4();
     }
 
-    // Reverses the BigIP cookie encoding
+    /**
+     * Decode BigIP cookies into IP address and port
+     */
     public void decodeIPv4(){
         String[] splitString = this.encoded.split("\\.");
         String host = splitString[0];
@@ -198,16 +226,16 @@ class BigIPCookieScanIssue implements IScanIssue
     {
         StringBuilder sb = new StringBuilder();
         sb.append("<div>");
-        sb.append("Cookie Name: " + cookie.getCookieName());
+        sb.append("Cookie Name: ").append(cookie.getCookieName());
         sb.append("</div>");
         sb.append("<div>");
-        sb.append("Encoded: " + cookie.getEncoded());
+        sb.append("Encoded: ").append(cookie.getEncoded());
         sb.append("</div>");
         sb.append("<div>");
-        sb.append("Host: " + cookie.getHost());
+        sb.append("Host: ").append(cookie.getHost());
         sb.append("</div>");
         sb.append("<div>");
-        sb.append("Port: " + cookie.getPort());
+        sb.append("Port: ").append(cookie.getPort());
         sb.append("</div>");
         return sb.toString();
     }
