@@ -314,7 +314,10 @@ class BigIPCookieScanIssue implements IScanIssue
     @Override
     public String getRemediationBackground()
     {
-        return null;
+
+        return"<div>Configure cookie encryption on the F5 load balancer.</div>" +
+                "<div>Manufacturer Reference:</div>" +
+                "<a href='https://support.f5.com/csp/article/K14784'>https://support.f5.com/csp/article/K14784</a>";
     }
 
     @Override

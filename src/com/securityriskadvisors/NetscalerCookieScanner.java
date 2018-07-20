@@ -276,7 +276,10 @@ class NetscalerCookieScanIssue implements IScanIssue
     @Override
     public String getRemediationBackground()
     {
-        return null;
+
+        return"<div>Configure cookie encryption on the Netscaler load balancer.</div>" +
+                "<div>Manufacturer Reference:</div>" +
+                "<a href='https://support.citrix.com/article/CTX220162'>https://support.citrix.com/article/CTX220162</a>";
     }
 
     @Override
