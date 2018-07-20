@@ -19,8 +19,11 @@ public class BigIPCookieScanner implements IScannerCheck{
 
     private BurpExtender extender;
     
-    // RegEx pattern for finding BigIP style cookies
-    private Pattern bigIpPattern = Pattern.compile("[0-9]{8,10}\\.[0-9]{3,5}\\.0000");
+    // RegEx patterns for finding BigIP style cookies
+    private Pattern ipv4 = Pattern.compile("([0-9]{8,10})\\.([0-9]{3,5})\\.0000");
+    private Pattern ipv4NonDefault = Pattern.compile("rd([0-9]+)o00000000000000000000ffff([a-f0-9]+)o([0-9]+)");
+    private Pattern ipv6 = Pattern.compile("vi([a-f0-9]+).([0-9]+)");
+    private Pattern ipv6NonDefault = Pattern.compile("rd([0-9]+)o(0{0,3}[a-f1-9]+0{0,3}[a-f0-9]+)o([0-9]+)");
 
     public BigIPCookieScanner(BurpExtender extender){
         this.extender = extender;
@@ -34,15 +37,32 @@ public class BigIPCookieScanner implements IScannerCheck{
      */
     private List<BigIPCookie> searchForCookies(List<ICookie> cookies){
         Matcher matcher;
-        BigIPCookie bigCookie;
+        BigIPCookie bigCookie = null;
 
         List<BigIPCookie> bigCookies = new ArrayList<>();
 
         for (ICookie cookie: cookies){
             // Check for a cookie value that matches a BigIP cookie
-            matcher = bigIpPattern.matcher(cookie.getValue());
+            matcher = ipv4.matcher(cookie.getValue());
             if (matcher.matches()){
-                bigCookie = new BigIPCookie(cookie.getName(), cookie.getValue());
+                bigCookie = new BigIPCookieIPv4(cookie.getName(), cookie.getValue(), matcher);
+            } else {
+                matcher = ipv4NonDefault.matcher(cookie.getValue());
+                if (matcher.matches()){
+                    bigCookie = new BigIPCookieIPv4NonDefault(cookie.getName(), cookie.getValue(), matcher);
+                } else {
+                    matcher = ipv6.matcher(cookie.getValue());
+                    if (matcher.matches()){
+                        bigCookie = new BigIPCookieIPv6(cookie.getName(), cookie.getValue(), matcher);
+                    } else {
+                        matcher = ipv6NonDefault.matcher(cookie.getValue());
+                        if (matcher.matches()){
+                            bigCookie = new BigIPCookieIPv6NonDefault(cookie.getName(), cookie.getValue(), matcher);
+                        }
+                    }
+                }
+            }
+            if (bigCookie != null){
                 bigCookies.add(bigCookie);
             }
         }
@@ -105,43 +125,21 @@ public class BigIPCookieScanner implements IScannerCheck{
     }
 }
 
-class BigIPCookie {
-    private String host;
-    private String port;
+abstract class BigIPCookie {
+    String host;
+    String port;
     private String encoded;
     private String cookieName;
+    Matcher matcher;
 
-    public BigIPCookie(String cookieName, String encoded){
+    public BigIPCookie(String cookieName, String encoded, Matcher matcher){
         this.cookieName = cookieName;
         this.encoded = encoded;
-        this.decodeIPv4();
+        this.matcher = matcher;
+        this.decode();
     }
 
-    /**
-     * Decode BigIP cookies into IP address and port
-     */
-    public void decodeIPv4(){
-        String[] splitString = this.encoded.split("\\.");
-        String host = splitString[0];
-        // Decode as hex and ensure result is padded to 8 characters
-        String hostAsHex = BurpExtender.leftPad(Long.toHexString(Long.parseLong(host)), 8, '0');
-        // Each two bytes is an octet in the IP address in reverse order
-        String oct4 = BigIPCookie.hexStringToDecString(hostAsHex.substring(0, 2));
-        String oct3 = BigIPCookie.hexStringToDecString(hostAsHex.substring(2, 4));
-        String oct2 = BigIPCookie.hexStringToDecString(hostAsHex.substring(4, 6));
-        String oct1 = BigIPCookie.hexStringToDecString(hostAsHex.substring(6, 8));
-        this.host = oct1 + "." + oct2 + "." + oct3 + "." + oct4;
-
-        String port = splitString[1];
-        // Decode as hex and ensure result is padded to 4 characters
-        String portAsHex = BurpExtender.leftPad(Long.toHexString(Long.parseLong(port)), 4, '0');
-        String reversedHex = portAsHex.substring(2, 4) + portAsHex.substring(0, 2);
-        this.port = BigIPCookie.hexStringToDecString(reversedHex);
-    }
-
-    private static String hexStringToDecString(String in){
-        return String.valueOf(Long.parseLong(in, 16));
-    }
+    abstract void decode();
 
     public String getHost(){
         return this.host;
@@ -157,6 +155,104 @@ class BigIPCookie {
 
     public String getCookieName(){
         return this.cookieName;
+    }
+}
+
+class BigIPCookieIPv4 extends BigIPCookie {
+
+    public BigIPCookieIPv4(String cookieName, String encoded, Matcher matcher){
+        super(cookieName, encoded, matcher);
+    }
+
+    /**
+     * Decode BigIP cookies into IP address and port
+     */
+    public void decode(){
+        String host = this.matcher.group(1);
+        // Decode as hex and ensure result is padded to 8 characters
+        String hostAsHex = BurpExtender.leftPad(Long.toHexString(Long.parseLong(host)), 8, '0');
+        // Each two bytes is an octet in the IP address in reverse order
+        String oct4 = BurpExtender.hexStringToDecString(hostAsHex.substring(0, 2));
+        String oct3 = BurpExtender.hexStringToDecString(hostAsHex.substring(2, 4));
+        String oct2 = BurpExtender.hexStringToDecString(hostAsHex.substring(4, 6));
+        String oct1 = BurpExtender.hexStringToDecString(hostAsHex.substring(6, 8));
+        this.host = oct1 + "." + oct2 + "." + oct3 + "." + oct4;
+
+        String port = this.matcher.group(2);
+        // Decode as hex and ensure result is padded to 4 characters
+        String portAsHex = BurpExtender.leftPad(Long.toHexString(Long.parseLong(port)), 4, '0');
+        String reversedHex = portAsHex.substring(2, 4) + portAsHex.substring(0, 2);
+        this.port = BurpExtender.hexStringToDecString(reversedHex);
+    }
+}
+
+class BigIPCookieIPv4NonDefault extends BigIPCookie {
+
+    public BigIPCookieIPv4NonDefault(String cookieName, String encoded, Matcher matcher){
+        super(cookieName, encoded, matcher);
+    }
+
+    /**
+     * Decode BigIP cookies into IP address and port
+     */
+    public void decode(){
+        String routeId = this.matcher.group(1);
+        String hostAsHex = this.matcher.group(2);
+        // Each two bytes is an octet in the IP address in reverse order
+        String oct1 = BurpExtender.hexStringToDecString(hostAsHex.substring(0, 2));
+        String oct2 = BurpExtender.hexStringToDecString(hostAsHex.substring(2, 4));
+        String oct3 = BurpExtender.hexStringToDecString(hostAsHex.substring(4, 6));
+        String oct4 = BurpExtender.hexStringToDecString(hostAsHex.substring(6, 8));
+        this.host = oct1 + "." + oct2 + "." + oct3 + "." + oct4 + "%" + routeId;
+
+        this.port = this.matcher.group(3);
+    }
+}
+
+class BigIPCookieIPv6 extends BigIPCookie {
+
+    public BigIPCookieIPv6(String cookieName, String encoded, Matcher matcher){
+        super(cookieName, encoded, matcher);
+    }
+
+    /**
+     * Decode BigIP cookies into IP address and port
+     */
+    public void decode(){
+        String host = this.matcher.group(1);
+        ArrayList<String> ipv6 = new ArrayList<>();
+        for (int i=0; i < host.length(); i+=4){
+            ipv6.add(host.substring(i, i+4).replaceAll("^0{0,3}", ""));
+        }
+        this.host = String.join(":", ipv6);
+
+        String port = this.matcher.group(2);
+        // Decode as hex and ensure result is padded to 4 characters
+        String portAsHex = BurpExtender.leftPad(Long.toHexString(Long.parseLong(port)), 4, '0');
+        String reversedHex = portAsHex.substring(2, 4) + portAsHex.substring(0, 2);
+        this.port = BurpExtender.hexStringToDecString(reversedHex);
+    }
+}
+
+class BigIPCookieIPv6NonDefault extends BigIPCookie {
+
+    public BigIPCookieIPv6NonDefault(String cookieName, String encoded, Matcher matcher){
+        super(cookieName, encoded, matcher);
+    }
+
+    /**
+     * Decode BigIP cookies into IP address and port
+     */
+    public void decode(){
+        String routeId = this.matcher.group(1);
+        String host = this.matcher.group(2);
+        ArrayList<String> ipv6 = new ArrayList<>();
+        for (int i=0; i < host.length(); i+=4){
+            ipv6.add(host.substring(i, i+4).replaceAll("^0{0,3}", ""));
+        }
+        this.host = String.join(":", ipv6) + "%" + routeId;
+
+        this.port = this.matcher.group(3);
     }
 }
 

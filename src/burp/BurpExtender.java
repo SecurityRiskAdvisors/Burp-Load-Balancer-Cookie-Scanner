@@ -76,6 +76,11 @@ public class BurpExtender implements IBurpExtender
         return sb.toString();
     }
 
+    public static String hexStringToDecString(String in){
+        return String.valueOf(Long.parseLong(in, 16));
+    }
+
+
     /**
      *
      * @return Burp extender callbacks
